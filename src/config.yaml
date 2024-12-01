@@ -196,6 +196,12 @@ widgets:
         - "\uf028"
       callbacks:
         on_right: "exec cmd.exe /c start ms-settings:sound"
+  heater:
+    type: "tamion.heater.HeaterWidget"
+    options:
+      label: "<span>{icon}</span> {level}"
+      label_alt: "{volume}"
+      heater_icon: "\udb81\udd99"
   microphone:
     type: "yasb.microphone.MicrophoneWidget"
     options:

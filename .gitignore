@@ -4,3 +4,5 @@ __pycache__/
 src/yasb.log
 src/dist/
 src/build/
+
+config.ini

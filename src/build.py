@@ -6,6 +6,7 @@ build_options = {
     "packages": [
         'core.widgets.yasb.power_menu',
         'core.widgets.yasb.volume',
+        'core.widgets.yasb.heater'
         'core.widgets.yasb.weather',
         'core.widgets.yasb.memory',
         'core.widgets.yasb.cpu',
