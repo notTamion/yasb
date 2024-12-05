@@ -201,7 +201,7 @@ widgets:
     options:
       label: "<span>{icon}</span> {level}"
       label_alt: "{volume}"
-      heater_icon: "\udb81\udd99"
+      heater_icon: "\udb86\ude45"
   microphone:
     type: "yasb.microphone.MicrophoneWidget"
     options:

@@ -13,6 +13,7 @@ from homematicip.group import HeatingGroup
 from homematicip.home import Home
 # Disable comtypes logging
 logging.getLogger('comtypes').setLevel(logging.CRITICAL)
+logging.getLogger('homematicip').setLevel(logging.CRITICAL)
  
 class HeaterWidget(BaseWidget):
     validation_schema = VALIDATION_SCHEMA
@@ -93,9 +94,6 @@ class HeaterWidget(BaseWidget):
         self._widgets_alt = process_content(content_alt, is_alt=True)
 
     def _update_label(self):
-        if self.lastFetch + 120 < time.time() and self.lastChange is None:
-            self.home.get_current_state()
-            self.lastFetch = time.time()
         if self.lastChange is not None and self.lastChange + 5 < time.time():
             self.lastChange = None
             self.heatingGroup.set_point_temperature(self.heatingGroup.setPointTemperature)
@@ -134,15 +132,11 @@ class HeaterWidget(BaseWidget):
                 widget_index += 1
 
     def _increase_temperature(self):
-        if self.lastChange is None:
-            self.home.get_current_state()
         self.heatingGroup.setPointTemperature += 0.5
         self.lastChange = time.time()
         self._update_label()
 
     def _decrease_temperature(self):
-        if self.lastChange is None:
-            self.home.get_current_state()
         self.heatingGroup.setPointTemperature -= 0.5
         self.lastChange = time.time()
         self._update_label()
@@ -159,11 +153,21 @@ class HeaterWidget(BaseWidget):
         self.home.set_auth_token(config.auth_token)
         self.home.init(config.access_point)
         self.home.get_current_state()
+        self.home.onEvent += self.handle_event
+        self.home.enable_events()
         for group in self.home.groups:
             if isinstance(group, HeatingGroup):
                 for device in group.devices:
                     if isinstance(device, HeatingThermostat):
                         if str(device.label).startswith("Simon"):
                             self.heatingGroup = group
-                            self.actualTemperature = group.actualTemperature
-                            self.setTemperature = group.setPointTemperature
+
+    def handle_event(self, event_list):
+        for event in event_list:
+            if event["eventType"] == "GROUP_CHANGED":
+                data = event["data"]
+                if isinstance(data, HeatingGroup):
+                    if str(data.label).startswith("Simon"):
+                        if self.lastChange is None:
+                            self.heatingGroup.actualTemperature = data.actualTemperature
+                            self.heatingGroup.setPointTemperature = data.setPointTemperature

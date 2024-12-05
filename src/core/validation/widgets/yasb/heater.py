@@ -1,7 +1,7 @@
 DEFAULTS = {
     'label': "{volume[percent]}%",
     'label_alt': "{volume[percent]}%",
-    'heater_icon': "\udb81\udd99",
+    'heater_icon': "\udb86\ude45",
     'callbacks': {
         'on_middle': 'do_nothing',
         'on_right': 'do_nothing'
