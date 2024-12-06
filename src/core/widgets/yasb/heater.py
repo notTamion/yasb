@@ -6,14 +6,16 @@ import homematicip
 from core.widgets.base import BaseWidget
 from core.validation.widgets.yasb.heater import VALIDATION_SCHEMA
 from PyQt6.QtWidgets import QLabel, QHBoxLayout, QWidget
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QWheelEvent
 from homematicip.device import HeatingThermostat
 from homematicip.group import HeatingGroup
 from homematicip.home import Home
-# Disable comtypes logging
-logging.getLogger('comtypes').setLevel(logging.CRITICAL)
+
+#Disable homematic logging
 logging.getLogger('homematicip').setLevel(logging.CRITICAL)
+
+home = None
  
 class HeaterWidget(BaseWidget):
     validation_schema = VALIDATION_SCHEMA
@@ -26,14 +28,16 @@ class HeaterWidget(BaseWidget):
         heater_icon: str,
         callbacks: dict[str, str]
     ):
-        super().__init__(timer_interval=5000, class_name="heater-widget")
+        super().__init__(class_name="heater-widget")
         self._show_alt_label = False
         self._label_content = label
         self._label_alt_content = label_alt
 
         self.heatingGroup = None
-        self.lastFetch = time.time()
-        self.lastChange = None
+        self.set_timer = QTimer()
+        self.set_timer.setSingleShot(True)
+        self.set_timer.setInterval(5000)
+        self.set_timer.timeout.connect(self.set_new_point)
         self._display_set = False
         self._heater_icon = heater_icon
         self._widget_container_layout: QHBoxLayout = QHBoxLayout()
@@ -51,10 +55,10 @@ class HeaterWidget(BaseWidget):
         self.callback_timer = "update_label"
 
         self._initialize_homematic_interface()
+
         self.update_label_signal.connect(self._update_label)
         
         self._update_label()
-        self.start_timer()
 
     def _toggle_label(self):
         self._show_alt_label = not self._show_alt_label
@@ -94,9 +98,6 @@ class HeaterWidget(BaseWidget):
         self._widgets_alt = process_content(content_alt, is_alt=True)
 
     def _update_label(self):
-        if self.lastChange is not None and self.lastChange + 5 < time.time():
-            self.lastChange = None
-            self.heatingGroup.set_point_temperature(self.heatingGroup.setPointTemperature)
         active_widgets = self._widgets_alt if self._show_alt_label else self._widgets
         active_label_content = self._label_alt_content if self._show_alt_label else self._label_content
         label_parts = re.split('(<span.*?>.*?</span>)', active_label_content)
@@ -104,11 +105,7 @@ class HeaterWidget(BaseWidget):
         widget_index = 0
         try:
             icon_volume = self._heater_icon
-            if self.lastChange is not None:
-                level_volume = f'{self.heatingGroup.setPointTemperature}°C'
-            else:
-                level_volume = f'{self.heatingGroup.actualTemperature}°C'
-            self._display_set = False
+            level_volume = f'{self.heatingGroup.setPointTemperature}°C' if self._display_set else f'{self.heatingGroup.actualTemperature}°C'
         except Exception:
             icon_volume, level_volume = "N/A", "N/A"
 
@@ -133,12 +130,21 @@ class HeaterWidget(BaseWidget):
 
     def _increase_temperature(self):
         self.heatingGroup.setPointTemperature += 0.5
-        self.lastChange = time.time()
+        self._display_set = True
         self._update_label()
+        self.set_timer.stop()
+        self.set_timer.start()
 
     def _decrease_temperature(self):
         self.heatingGroup.setPointTemperature -= 0.5
-        self.lastChange = time.time()
+        self._display_set = True
+        self._update_label()
+        self.set_timer.stop()
+        self.set_timer.start()
+
+    def set_new_point(self):
+        self._display_set = False
+        self.heatingGroup.set_point_temperature(self.heatingGroup.setPointTemperature)
         self._update_label()
 
     def wheelEvent(self, event: QWheelEvent):
@@ -148,14 +154,16 @@ class HeaterWidget(BaseWidget):
             self._decrease_temperature()
 
     def _initialize_homematic_interface(self):
-        config = homematicip.find_and_load_config_file()
-        self.home = Home()
-        self.home.set_auth_token(config.auth_token)
-        self.home.init(config.access_point)
-        self.home.get_current_state()
-        self.home.onEvent += self.handle_event
-        self.home.enable_events()
-        for group in self.home.groups:
+        global home
+        if home is None:
+            config = homematicip.find_and_load_config_file()
+            home = Home()
+            home.set_auth_token(config.auth_token)
+            home.init(config.access_point)
+            home.get_current_state()
+            home.enable_events()
+        home.onEvent += self.handle_event
+        for group in home.groups:
             if isinstance(group, HeatingGroup):
                 for device in group.devices:
                     if isinstance(device, HeatingThermostat):
@@ -168,6 +176,6 @@ class HeaterWidget(BaseWidget):
                 data = event["data"]
                 if isinstance(data, HeatingGroup):
                     if str(data.label).startswith("Simon"):
-                        if self.lastChange is None:
-                            self.heatingGroup.actualTemperature = data.actualTemperature
-                            self.heatingGroup.setPointTemperature = data.setPointTemperature
+                        if not self._display_set:
+                            self.heatingGroup = data
+                            self._update_label()
