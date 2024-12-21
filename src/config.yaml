@@ -197,7 +197,7 @@ widgets:
       callbacks:
         on_right: "exec cmd.exe /c start ms-settings:sound"
   heater:
-    type: "tamion.heater.HeaterWidget"
+    type: "yasb.heater.HeaterWidget"
     options:
       label: "<span>{icon}</span> {level}"
       label_alt: "{volume}"
