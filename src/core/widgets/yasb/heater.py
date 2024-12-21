@@ -13,7 +13,7 @@ from homematicip.group import HeatingGroup
 from homematicip.home import Home
 
 #Disable homematic logging
-logging.getLogger('homematicip').setLevel(logging.CRITICAL)
+# logging.getLogger('homematicip').setLevel(logging.CRITICAL)
 
 home = None
  
